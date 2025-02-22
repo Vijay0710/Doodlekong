@@ -1,6 +1,11 @@
 package com.plcoding.doodlekong.di
 
 import com.google.gson.Gson
+import com.plcoding.doodlekong.data.remote.api.SetUpApi
+import com.plcoding.doodlekong.utils.Constants
+import com.plcoding.doodlekong.utils.Constants.HTTP_BASE_URL
+import com.plcoding.doodlekong.utils.Constants.HTTP_BASE_URL_LOCALHOST
+import com.plcoding.doodlekong.utils.Constants.USER_LOCALHOST
 import com.plcoding.doodlekong.utils.DispatcherProvider
 import dagger.Module
 import dagger.Provides
@@ -10,6 +15,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 import javax.inject.Singleton
 
 @Module
@@ -38,7 +45,7 @@ object AppModule {
     @Singleton
     @Provides
     fun providesDispatcherProvider(): DispatcherProvider {
-        return object: DispatcherProvider {
+        return object : DispatcherProvider {
             override val main: CoroutineDispatcher
                 get() = Dispatchers.Main
             override val io: CoroutineDispatcher
@@ -46,5 +53,16 @@ object AppModule {
             override val default: CoroutineDispatcher
                 get() = Dispatchers.Default
         }
+    }
+
+    @Singleton
+    @Provides
+    fun providesSetUpApi(okHttpClient: OkHttpClient): SetUpApi {
+        return Retrofit.Builder()
+            .baseUrl(if (USER_LOCALHOST) HTTP_BASE_URL_LOCALHOST else HTTP_BASE_URL)
+            .addConverterFactory(GsonConverterFactory.create())
+            .client(okHttpClient)
+            .build()
+            .create(SetUpApi::class.java)
     }
 }
