@@ -23,5 +23,4 @@ interface SetUpApi {
         @Query("username") username: String,
         @Query("roomName") roomName: String
     ): Response<BasicApiResponse>
-
 }

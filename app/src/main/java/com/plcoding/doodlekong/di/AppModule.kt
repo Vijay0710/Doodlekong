@@ -1,5 +1,6 @@
 package com.plcoding.doodlekong.di
 
+import android.content.Context
 import com.google.gson.Gson
 import com.plcoding.doodlekong.data.remote.api.SetUpApi
 import com.plcoding.doodlekong.utils.Constants
@@ -10,6 +11,7 @@ import com.plcoding.doodlekong.utils.DispatcherProvider
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -41,6 +43,10 @@ object AppModule {
     fun providesGsonInstance(): Gson {
         return Gson()
     }
+
+    @Singleton
+    @Provides
+    fun providesApplicationContext( @ApplicationContext context: Context) = context
 
     @Singleton
     @Provides
