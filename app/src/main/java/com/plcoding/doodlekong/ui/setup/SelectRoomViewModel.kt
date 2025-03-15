@@ -20,23 +20,13 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
-class SetUpViewModel @Inject constructor(
+class SelectRoomViewModel @Inject constructor(
     private val setUpRepository: SetUpRepository,
     private val dispatcherProvider: DispatcherProvider
 ) : ViewModel() {
 
 
     sealed class SetUpEvent {
-        data object InputEmptyError : SetUpEvent()
-        data object InputTooShortError : SetUpEvent()
-        data object InputTooLongError : SetUpEvent()
-
-        data class CreateRoomEvent(val room: Room) : SetUpEvent()
-        data class CreateRoomErrorEvent(val error: String) : SetUpEvent()
-
-        data class NavigateToSelectRoomEvent(val username: String) : SetUpEvent()
-        data class NavigateToSelectRoomErrorEvent(val error: String) : SetUpEvent()
-
         data class GetRoomEvent(val rooms: List<Room>) : SetUpEvent()
         data class GetRoomErrorEvent(val error: String) : SetUpEvent()
 
@@ -52,55 +42,6 @@ class SetUpViewModel @Inject constructor(
 
     private val _rooms = MutableStateFlow<SetUpEvent>(SetUpEvent.GetRoomEmptyEvent)
     val rooms = _rooms.asStateFlow()
-
-
-    fun validateUsernameAndNavigateToSelectRoom(username: String) {
-        viewModelScope.launch(dispatcherProvider.main) {
-            val trimmedUsername = username.trim()
-            when {
-                trimmedUsername.isEmpty() -> {
-                    _setUpEvent.emit(SetUpEvent.InputEmptyError)
-                }
-
-                trimmedUsername.length < MIN_USERNAME_LENGTH -> {
-                    _setUpEvent.emit(SetUpEvent.InputTooShortError)
-                }
-
-                trimmedUsername.length > MAX_USERNAME_LENGTH -> {
-                    _setUpEvent.emit(SetUpEvent.InputTooLongError)
-                }
-
-                else -> {
-                    _setUpEvent.emit(SetUpEvent.NavigateToSelectRoomEvent(trimmedUsername))
-                }
-            }
-        }
-    }
-
-    fun createRoom(room: Room) {
-        viewModelScope.launch(dispatcherProvider.main) {
-            val trimmedRoom = room.name.trim()
-
-            when {
-                trimmedRoom.isEmpty() -> _setUpEvent.emit(SetUpEvent.GetRoomEmptyEvent)
-                trimmedRoom.length < MIN_ROOM_NAME_LENGTH -> _setUpEvent.emit(SetUpEvent.InputTooShortError)
-                trimmedRoom.length > MAX_ROOM_NAME_LENGTH -> _setUpEvent.emit(SetUpEvent.InputTooLongError)
-                else -> {
-                    when (val result = setUpRepository.createRoom(room)) {
-                        is Resource.Error -> {
-                            _setUpEvent.emit(
-                                SetUpEvent.CreateRoomErrorEvent(
-                                    error = result.errorMessage ?: return@launch
-                                )
-                            )
-                        }
-
-                        is Resource.Success -> _setUpEvent.emit(SetUpEvent.CreateRoomEvent(room))
-                    }
-                }
-            }
-        }
-    }
 
     fun getRooms(searchQuery: String) {
         _rooms.value = SetUpEvent.GetRoomLoadingEvent

@@ -2,7 +2,7 @@ package com.plcoding.doodlekong.data.remote.ws
 
 data class Room(
     val name: String,
-    val maxPlayers: Int,
+    val maximumPlayers: Int,
     val playerCount: Int = 1,
 ) {
     enum class Phase {
