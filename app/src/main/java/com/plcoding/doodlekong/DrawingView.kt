@@ -79,10 +79,10 @@ class DrawingView @JvmOverloads constructor(
             canvas.drawPath(pathData.path, paint)
         }
 
-//        paint.apply {
-//            color = initialColor
-//            strokeWidth = initialThickness
-//        }
+        paint.apply {
+            color = initialColor
+            strokeWidth = initialThickness
+        }
         canvas.drawPath(path, paint)
     }
 
