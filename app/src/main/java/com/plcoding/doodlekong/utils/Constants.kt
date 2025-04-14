@@ -2,6 +2,7 @@ package com.plcoding.doodlekong.utils
 
 object Constants {
 
+    const val DEFAULT_PAINT_THICKNESS = 12F
     const val USER_LOCALHOST = true
 
     const val HTTP_BASE_URL = ""
