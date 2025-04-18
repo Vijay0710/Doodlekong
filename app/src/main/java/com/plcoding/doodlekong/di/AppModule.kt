@@ -1,17 +1,29 @@
 package com.plcoding.doodlekong.di
 
+import android.app.Application
 import android.content.Context
 import com.google.gson.Gson
 import com.plcoding.doodlekong.data.remote.api.SetUpApi
+import com.plcoding.doodlekong.data.remote.ws.CustomGsonMessageAdapter
+import com.plcoding.doodlekong.data.remote.ws.DrawingAPI
+import com.plcoding.doodlekong.data.remote.ws.FlowStreamAdapter
 import com.plcoding.doodlekong.repository.DefaultSetUpRepository
 import com.plcoding.doodlekong.repository.SetUpRepository
 import com.plcoding.doodlekong.utils.Constants
 import com.plcoding.doodlekong.utils.Constants.HTTP_BASE_URL
 import com.plcoding.doodlekong.utils.Constants.HTTP_BASE_URL_LOCALHOST
+import com.plcoding.doodlekong.utils.Constants.RECONNECT_INTERVAL
 import com.plcoding.doodlekong.utils.Constants.USER_LOCALHOST
+import com.plcoding.doodlekong.utils.Constants.WS_BASE_URL
+import com.plcoding.doodlekong.utils.Constants.WS_BASE_URL_LOCALHOST
 import com.plcoding.doodlekong.utils.DispatcherProvider
 import com.plcoding.doodlekong.utils.clientId
 import com.plcoding.doodlekong.utils.dataStore
+import com.tinder.scarlet.Lifecycle
+import com.tinder.scarlet.Scarlet
+import com.tinder.scarlet.lifecycle.android.AndroidLifecycle
+import com.tinder.scarlet.retry.LinearBackoffStrategy
+import com.tinder.scarlet.websocket.okhttp.newWebSocketFactory
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -53,6 +65,25 @@ object AppModule {
                 }
             )
             .build()
+    }
+
+    @Singleton
+    @Provides
+    fun providesDrawingApi(
+        gson: Gson,
+        app: Application,
+        okHttpClient: OkHttpClient
+    ): DrawingAPI {
+        return Scarlet.Builder()
+            .backoffStrategy(LinearBackoffStrategy(RECONNECT_INTERVAL))
+            .lifecycle(AndroidLifecycle.ofApplicationForeground(app))
+            .webSocketFactory(
+                okHttpClient.newWebSocketFactory(if (USER_LOCALHOST) WS_BASE_URL_LOCALHOST else WS_BASE_URL)
+            )
+            .addStreamAdapterFactory(FlowStreamAdapter.Factory)
+            .addMessageAdapterFactory(CustomGsonMessageAdapter.Factory(gson))
+            .build()
+            .create()
     }
 
     @Singleton
