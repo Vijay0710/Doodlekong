@@ -4,6 +4,7 @@ package com.plcoding.doodlekong.ui.drawing
 import android.graphics.Color
 import android.os.Bundle
 import android.view.MenuItem
+import android.view.MotionEvent
 import android.view.View
 import androidx.activity.viewModels
 import androidx.appcompat.app.ActionBarDrawerToggle
@@ -18,8 +19,17 @@ import com.plcoding.doodlekong.utils.Constants
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import androidx.core.view.GravityCompat
+import androidx.core.view.isVisible
 import androidx.drawerlayout.widget.DrawerLayout
+import androidx.navigation.navArgs
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.snackbar.Snackbar
+import com.plcoding.doodlekong.data.remote.ws.models.DrawAction
+import com.plcoding.doodlekong.data.remote.ws.models.GameError
+import com.plcoding.doodlekong.data.remote.ws.models.JoinRoomHandShake
+import com.tinder.scarlet.WebSocket
+import timber.log.Timber
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class DrawingActivity : AppCompatActivity() {
@@ -30,13 +40,23 @@ class DrawingActivity : AppCompatActivity() {
     private lateinit var toggle: ActionBarDrawerToggle
     private lateinit var rvPlayers: RecyclerView
 
+    @Inject
+    lateinit var clientId: String
+
+    private val args: DrawingActivityArgs by navArgs()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityDrawingBinding.inflate(layoutInflater)
         setContentView(binding.root)
         subscribeToUiStateUpdates()
 
+        listenToConnectionEvents()
+        listenToSocketEvents()
+
         toggle = ActionBarDrawerToggle(this, binding.root, R.string.open, R.string.close)
+
+        binding.drawingView.roomName = args.roomName
 
         val header = layoutInflater.inflate(R.layout.nav_drawer_header, binding.navView)
         rvPlayers = header.findViewById(R.id.rvPlayers)
@@ -47,6 +67,23 @@ class DrawingActivity : AppCompatActivity() {
             viewModel.checkRadioButton(
                 DrawingViewModel.ColorResourceId(checkedId)
             )
+        }
+
+        binding.drawingView.setOnDrawListener {
+            if (binding.drawingView.isUserDrawing) {
+                viewModel.sendBaseModel(it)
+            }
+        }
+
+        binding.ibUndo.setOnClickListener {
+            if (binding.drawingView.isUserDrawing) {
+                binding.drawingView.undo()
+                viewModel.sendBaseModel(
+                    DrawAction(
+                        action = DrawAction.ACTION_UNDO
+                    )
+                )
+            }
         }
     }
 
@@ -92,6 +129,91 @@ class DrawingActivity : AppCompatActivity() {
 
     }
 
+    private fun listenToConnectionEvents() = lifecycleScope.launch {
+        repeatOnLifecycle(Lifecycle.State.STARTED) {
+            viewModel.connectionEvent.collect { event ->
+                when (event) {
+                    is WebSocket.Event.OnConnectionClosed -> {
+                        viewModel.setConnectionProgressBarVisibility(false)
+                    }
+
+                    is WebSocket.Event.OnConnectionFailed -> {
+                        viewModel.setConnectionProgressBarVisibility(false)
+                        Snackbar.make(
+                            binding.root,
+                            R.string.error_connection_failed,
+                            Snackbar.LENGTH_LONG
+                        )
+                        event.throwable.printStackTrace()
+                    }
+
+                    is WebSocket.Event.OnConnectionOpened<*> -> {
+                        Timber.tag("VIJ").d("Connection is Opened sending Base Model")
+                        viewModel.sendBaseModel(
+                            JoinRoomHandShake(
+                                username = args.username,
+                                roomName = args.roomName,
+                                clientId = clientId
+                            )
+                        )
+
+                        viewModel.setConnectionProgressBarVisibility(false)
+                    }
+
+                    else -> Unit
+                }
+
+            }
+        }
+    }
+
+    private fun listenToSocketEvents() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.socketEvent.collect { event ->
+                    when (event) {
+                        is DrawingViewModel.SocketEvent.AnnouncementEvent -> TODO()
+                        is DrawingViewModel.SocketEvent.CheckMessageEvent -> TODO()
+                        is DrawingViewModel.SocketEvent.ChosenWordEvent -> TODO()
+                        is DrawingViewModel.SocketEvent.DrawDataEvent -> {
+                            val drawData = event.data
+                            if (!binding.drawingView.isUserDrawing) {
+                                when (drawData.motionEvent) {
+                                    MotionEvent.ACTION_DOWN -> {
+                                        binding.drawingView.startedTouchExternally(drawData)
+                                    }
+
+                                    MotionEvent.ACTION_MOVE -> {
+                                        binding.drawingView.movedTouchExternally(drawData)
+                                    }
+
+                                    MotionEvent.ACTION_UP -> {
+                                        binding.drawingView.releaseTouchExternally(drawData)
+                                    }
+                                }
+                            }
+                        }
+
+                        is DrawingViewModel.SocketEvent.GameErrorEvent -> {
+                            when (event.data.errorType) {
+                                GameError.ERROR_ROOM_NOT_FOUND -> {
+                                    finish()
+                                }
+                            }
+                        }
+
+                        is DrawingViewModel.SocketEvent.GameStateEvent -> TODO()
+                        is DrawingViewModel.SocketEvent.NewWordsEvent -> TODO()
+                        is DrawingViewModel.SocketEvent.RoundDrawInfoEvent -> TODO()
+                        DrawingViewModel.SocketEvent.UndoEvent -> {
+                            binding.drawingView.undo()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private fun subscribeToUiStateUpdates() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -113,6 +235,24 @@ class DrawingActivity : AppCompatActivity() {
                             binding.drawingView.setThickness(40f)
                         }
                     }
+                }
+            }
+        }
+
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.connectionProgressBarVisible.collect { isVisible ->
+                    binding.connectionProgressBar.isVisible = isVisible
+                }
+            }
+        }
+
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.chooseWordOverlayVisible.collect { isVisible ->
+                    binding.chooseWordOverlay.isVisible = isVisible
                 }
             }
         }
