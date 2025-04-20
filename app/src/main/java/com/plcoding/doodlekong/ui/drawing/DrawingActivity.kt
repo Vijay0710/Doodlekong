@@ -22,8 +22,10 @@ import androidx.core.view.GravityCompat
 import androidx.core.view.isVisible
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.navigation.navArgs
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.snackbar.Snackbar
+import com.plcoding.doodlekong.adapters.ChatMessageAdapter
 import com.plcoding.doodlekong.data.remote.ws.models.DrawAction
 import com.plcoding.doodlekong.data.remote.ws.models.GameError
 import com.plcoding.doodlekong.data.remote.ws.models.JoinRoomHandShake
@@ -43,6 +45,8 @@ class DrawingActivity : AppCompatActivity() {
     @Inject
     lateinit var clientId: String
 
+    private lateinit var chatMessageAdapter: ChatMessageAdapter
+
     private val args: DrawingActivityArgs by navArgs()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,6 +57,8 @@ class DrawingActivity : AppCompatActivity() {
 
         listenToConnectionEvents()
         listenToSocketEvents()
+
+        setUpRecyclerView()
 
         toggle = ActionBarDrawerToggle(this, binding.root, R.string.open, R.string.close)
 
@@ -255,6 +261,14 @@ class DrawingActivity : AppCompatActivity() {
                     binding.chooseWordOverlay.isVisible = isVisible
                 }
             }
+        }
+    }
+
+    private fun setUpRecyclerView() {
+        binding.rvChat.apply {
+            chatMessageAdapter = ChatMessageAdapter(args.username)
+            adapter = chatMessageAdapter
+            layoutManager = LinearLayoutManager(this@DrawingActivity)
         }
     }
 }
