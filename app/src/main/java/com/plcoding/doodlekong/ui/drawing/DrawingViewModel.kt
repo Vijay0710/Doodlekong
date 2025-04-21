@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import java.net.Socket
 import javax.inject.Inject
 
 @HiltViewModel
@@ -38,7 +39,7 @@ class DrawingViewModel @Inject constructor(
 ) : ViewModel() {
 
     sealed class SocketEvent {
-        data class CheckMessageEvent(val data: ChatMessage): SocketEvent()
+        data class ChatMessageEvent(val data: ChatMessage): SocketEvent()
         data class AnnouncementEvent(val data: Announcement): SocketEvent()
         data class GameStateEvent(val data: GameState): SocketEvent()
         data class DrawDataEvent(val data: DrawData): SocketEvent()
@@ -53,6 +54,12 @@ class DrawingViewModel @Inject constructor(
         observeBaseModels()
         observeEvents()
     }
+
+    private val _newWords = MutableStateFlow(NewWords(listOf()))
+    val newWords = _newWords.asStateFlow()
+
+    private val _chat = MutableStateFlow<List<BaseModel>>(listOf())
+    val chat = _chat.asStateFlow()
 
     private val _selectedColorButtonId = MutableStateFlow(
         ColorResourceId(R.id.rbBlack)
@@ -93,12 +100,44 @@ class DrawingViewModel @Inject constructor(
         }
     }
 
+    fun chooseWord(word: String, roomName: String) {
+        val chosenWord = ChosenWord(word, roomName)
+        sendBaseModel(chosenWord)
+    }
+
+    fun sendChatMessage(message: ChatMessage) {
+        if(message.message.trim().isEmpty()) {
+            return
+        }
+
+        viewModelScope.launch(dispatchers.io) {
+            drawingAPI.sendBaseModel(message)
+        }
+    }
+
     private fun observeBaseModels() {
         viewModelScope.launch(dispatchers.io) {
             drawingAPI.observeBaseModels().collect { data ->
                 when(data) {
                     is DrawData -> {
                         socketEventChannel.send(SocketEvent.DrawDataEvent(data))
+                    }
+
+                    is ChatMessage -> {
+                        socketEventChannel.send(SocketEvent.ChatMessageEvent(data))
+                    }
+
+                    is ChosenWord -> {
+                        socketEventChannel.send(SocketEvent.ChosenWordEvent(data))
+                    }
+
+                    is Announcement -> {
+                        socketEventChannel.send(SocketEvent.AnnouncementEvent(data))
+                    }
+
+                    is NewWords -> {
+                        _newWords.value = data
+                        socketEventChannel.send(SocketEvent.NewWordsEvent(data))
                     }
 
                     is DrawAction -> {

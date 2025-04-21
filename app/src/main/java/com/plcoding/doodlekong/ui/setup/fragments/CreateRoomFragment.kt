@@ -19,6 +19,7 @@ import com.plcoding.doodlekong.databinding.FragmentCreateRoomBinding
 import com.plcoding.doodlekong.ui.setup.CreateRoomViewModel
 import com.plcoding.doodlekong.utils.Constants.MAX_ROOM_NAME_LENGTH
 import com.plcoding.doodlekong.utils.Constants.MIN_ROOM_NAME_LENGTH
+import com.plcoding.doodlekong.utils.hideKeyboard
 import com.plcoding.doodlekong.utils.navigateSafely
 import com.plcoding.doodlekong.utils.snackBar
 import dagger.hilt.android.AndroidEntryPoint
@@ -48,6 +49,7 @@ class CreateRoomFragment : Fragment(R.layout.fragment_create_room) {
                     binding.tvMaxPersons.text.toString().toInt()
                 )
             )
+            requireActivity().hideKeyboard(binding.root)
         }
 
     }
