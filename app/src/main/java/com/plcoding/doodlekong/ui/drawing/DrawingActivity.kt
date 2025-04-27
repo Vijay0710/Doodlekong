@@ -26,6 +26,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.snackbar.Snackbar
 import com.plcoding.doodlekong.adapters.ChatMessageAdapter
+import com.plcoding.doodlekong.data.remote.ws.Room
 import com.plcoding.doodlekong.data.remote.ws.models.BaseModel
 import com.plcoding.doodlekong.data.remote.ws.models.ChatMessage
 import com.plcoding.doodlekong.data.remote.ws.models.DrawAction
@@ -36,7 +37,6 @@ import com.tinder.scarlet.WebSocket
 import kotlinx.coroutines.Job
 import timber.log.Timber
 import javax.inject.Inject
-import kotlin.math.abs
 
 @AndroidEntryPoint
 class DrawingActivity : AppCompatActivity() {
@@ -117,6 +117,10 @@ class DrawingActivity : AppCompatActivity() {
                 )
             }
         }
+
+        binding.drawingView.setPathChangedListener {
+            viewModel.setPathData(it)
+        }
     }
 
     override fun onPause() {
@@ -127,6 +131,19 @@ class DrawingActivity : AppCompatActivity() {
     override fun onPostCreate(savedInstanceState: Bundle?) {
         super.onPostCreate(savedInstanceState)
         toggle.syncState()
+    }
+
+    private fun setColorGroupVisibility(isVisible: Boolean) {
+        binding.colorGroup.isVisible = isVisible
+        binding.ibUndo.isVisible = isVisible
+    }
+
+    private fun setMessageInputVisibility(isVisible: Boolean) {
+        binding.apply {
+            tilMessage.isVisible = isVisible
+            ibSend.isVisible = isVisible
+            ibClearText.isVisible = isVisible
+        }
     }
 
     private fun handleDrawer() {
@@ -249,8 +266,13 @@ class DrawingActivity : AppCompatActivity() {
                             }
                         }
 
-                        is DrawingViewModel.SocketEvent.GameStateEvent -> TODO()
-                        is DrawingViewModel.SocketEvent.NewWordsEvent -> TODO()
+                        is DrawingViewModel.SocketEvent.GameStateEvent -> {
+                            binding.drawingView.clear()
+
+                        }
+                        is DrawingViewModel.SocketEvent.NewWordsEvent -> {
+
+                        }
                         is DrawingViewModel.SocketEvent.RoundDrawInfoEvent -> TODO()
                         DrawingViewModel.SocketEvent.UndoEvent -> {
                             binding.drawingView.undo()
@@ -281,6 +303,7 @@ class DrawingActivity : AppCompatActivity() {
                         return@collect
                     }
                     binding.apply {
+                        Timber.tag("VIJ").d("Words are $newWords")
                         btnFirstWord.text = newWords[0]
                         btnSecondWord.text = newWords[1]
                         btnThirdWord.text = newWords[2]
@@ -323,6 +346,82 @@ class DrawingActivity : AppCompatActivity() {
                             binding.drawingView.setColor(Color.WHITE)
                             binding.drawingView.setThickness(40f)
                         }
+                    }
+                }
+            }
+        }
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.phaseTime.collect { time ->
+                    binding.roundTimerProgressBar.progress = time.toInt()
+                    binding.tvRemainingTimeChooseWord.text = (time / 1000).toString()
+                }
+            }
+        }
+
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.gameState.collect { gameState ->
+                    binding.apply {
+                        tvCurWord.text = gameState.word
+                        val isUserDrawing = gameState.drawingPlayer == args.username
+                        setColorGroupVisibility(isUserDrawing)
+                        setMessageInputVisibility(!isUserDrawing)
+                        drawingView.isUserDrawing = isUserDrawing
+                        ibMic.isVisible = !isUserDrawing
+                        drawingView.isEnabled = isUserDrawing
+                    }
+                }
+            }
+        }
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.phase.collect { phase ->
+                    when(phase.phase) {
+                        Room.Phase.WAITING_FOR_PLAYERS -> {
+                            binding.tvCurWord.text = getString(R.string.waiting_for_players)
+                            viewModel.cancelTimer()
+                            viewModel.setConnectionProgressBarVisibility(false)
+                            binding.roundTimerProgressBar.progress = binding.roundTimerProgressBar.max
+                        }
+                        Room.Phase.WAITING_FOR_START -> {
+                            binding.roundTimerProgressBar.max = phase.time.toInt()
+                            binding.tvCurWord.text = getString(R.string.waiting_for_start)
+                        }
+                        Room.Phase.NEW_ROUND -> {
+                            phase.drawingPlayer?.let { player ->
+                                binding.tvCurWord.text = getString(R.string.player_is_drawing, player)
+                            }
+                            binding.apply {
+                                drawingView.isEnabled = false
+                                drawingView.setColor(Color.BLACK)
+                                drawingView.setThickness(Constants.DEFAULT_PAINT_THICKNESS)
+                                roundTimerProgressBar.max = phase.time.toInt()
+
+                                val isUserDrawingPlayer = phase.drawingPlayer == args.username
+                                binding.chooseWordOverlay.isVisible = isUserDrawingPlayer
+                            }
+
+                        }
+                        Room.Phase.GAME_RUNNING -> {
+                            binding.chooseWordOverlay.isVisible = false
+                            binding.roundTimerProgressBar.max = phase.time.toInt()
+                        }
+                        Room.Phase.SHOW_WORD -> {
+                            binding.apply {
+                                if(drawingView.isDrawing) {
+                                    drawingView.finishOffDrawing()
+                                }
+                                drawingView.isEnabled = false
+                                drawingView.setColor(Color.BLACK)
+                                drawingView.setThickness(Constants.DEFAULT_PAINT_THICKNESS)
+                                roundTimerProgressBar.max = phase.time.toInt()
+                            }
+                        }
+                        null -> Unit
                     }
                 }
             }

@@ -69,7 +69,7 @@ class DrawingView @JvmOverloads constructor(
     }
 
     fun undo() {
-        if(paths.isNotEmpty()) {
+        if (paths.isNotEmpty()) {
             paths.pop()
             pathDataChangedListener?.let { change ->
                 change(paths)
@@ -133,7 +133,7 @@ class DrawingView @JvmOverloads constructor(
             val dx = abs(toX - fromX)
             val dy = abs(toY - fromY)
 
-            if(!startedTouch) {
+            if (!startedTouch) {
                 startedTouchExternally(drawData)
             }
 
@@ -148,7 +148,7 @@ class DrawingView @JvmOverloads constructor(
     fun releaseTouchExternally(drawData: DrawData) {
         parseDrawData(drawData).apply {
             path.lineTo(fromX, fromY)
-            canvas?.drawPath(path,paint)
+            canvas?.drawPath(path, paint)
 
             // When user undoes we need to remove the top path so we push the path that the player drawn
             paths.push(
@@ -200,6 +200,25 @@ class DrawingView @JvmOverloads constructor(
             curY = toY
             invalidate()
         }
+    }
+
+    fun finishOffDrawing() {
+        isDrawing = false
+        path.lineTo(curX ?: return, curY ?: return)
+        canvas?.drawPath(path, paint)
+        paths.push(
+            PathData(
+                path,
+                paint.color,
+                paint.strokeWidth
+            )
+        )
+
+        pathDataChangedListener?.let { change ->
+            change(paths)
+        }
+        path = Path()
+        invalidate()
     }
 
     private fun releasedTouch() {

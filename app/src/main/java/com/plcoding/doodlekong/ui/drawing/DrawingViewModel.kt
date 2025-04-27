@@ -4,8 +4,10 @@ import androidx.annotation.IdRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
+import com.plcoding.doodlekong.DrawingView
 import com.plcoding.doodlekong.R
 import com.plcoding.doodlekong.data.remote.ws.DrawingAPI
+import com.plcoding.doodlekong.data.remote.ws.Room
 import com.plcoding.doodlekong.data.remote.ws.models.Announcement
 import com.plcoding.doodlekong.data.remote.ws.models.BaseModel
 import com.plcoding.doodlekong.data.remote.ws.models.ChatMessage
@@ -16,11 +18,14 @@ import com.plcoding.doodlekong.data.remote.ws.models.DrawData
 import com.plcoding.doodlekong.data.remote.ws.models.GameError
 import com.plcoding.doodlekong.data.remote.ws.models.GameState
 import com.plcoding.doodlekong.data.remote.ws.models.NewWords
+import com.plcoding.doodlekong.data.remote.ws.models.PhaseChange
 import com.plcoding.doodlekong.data.remote.ws.models.Ping
 import com.plcoding.doodlekong.data.remote.ws.models.RoundDrawInfo
+import com.plcoding.doodlekong.utils.CoroutineTimer
 import com.plcoding.doodlekong.utils.DispatcherProvider
 import com.tinder.scarlet.WebSocket
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,7 +33,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import java.net.Socket
+import timber.log.Timber
+import java.util.Stack
 import javax.inject.Inject
 
 @HiltViewModel
@@ -55,8 +61,23 @@ class DrawingViewModel @Inject constructor(
         observeEvents()
     }
 
+    private val _pathData = MutableStateFlow(Stack<DrawingView.PathData>())
+    val pathData = _pathData.asStateFlow()
+
     private val _newWords = MutableStateFlow(NewWords(listOf()))
     val newWords = _newWords.asStateFlow()
+
+    private val _phase = MutableStateFlow(PhaseChange(null, 0L, null))
+    val phase = _phase.asStateFlow()
+
+    private val _gameState = MutableStateFlow(GameState("", ""))
+    val gameState = _gameState.asStateFlow()
+
+    private val _phaseTime = MutableStateFlow(0L)
+    val phaseTime = _phaseTime.asStateFlow()
+
+    private val timer = CoroutineTimer()
+    private var timerJob: Job? = null
 
     private val _chat = MutableStateFlow<List<BaseModel>>(listOf())
     val chat = _chat.asStateFlow()
@@ -84,6 +105,21 @@ class DrawingViewModel @Inject constructor(
                 connectionEventChannel.send(event)
             }
         }
+    }
+
+    fun setPathData(stack: Stack<DrawingView.PathData>) {
+        _pathData.value = stack
+    }
+
+    private fun setTimer(duration: Long) {
+        timerJob?.cancel()
+        timerJob = timer.timeAndEmit(duration, viewModelScope) {
+            _phaseTime.value = it
+        }
+    }
+
+    fun cancelTimer() {
+        timerJob?.cancel()
     }
 
     fun setChooseWordOverlayVisibility(isVisible: Boolean) {
@@ -136,7 +172,8 @@ class DrawingViewModel @Inject constructor(
                     }
 
                     is NewWords -> {
-                        _newWords.value = data
+                        _newWords.value = data.copy()
+                        Timber.tag("VIJ").d("New words is: ${_newWords.value}")
                         socketEventChannel.send(SocketEvent.NewWordsEvent(data))
                     }
 
@@ -150,6 +187,21 @@ class DrawingViewModel @Inject constructor(
 
                     is Ping -> {
                         sendBaseModel(Ping())
+                    }
+
+                    is GameState -> {
+                        _gameState.value = data
+                        socketEventChannel.send(SocketEvent.GameStateEvent(data))
+                    }
+
+                    is PhaseChange -> {
+                        data.phase?.let {
+                            _phase.value = data
+                        }
+                        _phaseTime.value = data.time
+                        if(data.phase != Room.Phase.WAITING_FOR_PLAYERS) {
+                            setTimer(data.time)
+                        }
                     }
 
                     is GameError -> {

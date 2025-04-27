@@ -12,6 +12,7 @@ import com.plcoding.doodlekong.data.remote.ws.models.DrawData
 import com.plcoding.doodlekong.data.remote.ws.models.GameError
 import com.plcoding.doodlekong.data.remote.ws.models.GameState
 import com.plcoding.doodlekong.data.remote.ws.models.JoinRoomHandShake
+import com.plcoding.doodlekong.data.remote.ws.models.NewWords
 import com.plcoding.doodlekong.data.remote.ws.models.PhaseChange
 import com.plcoding.doodlekong.data.remote.ws.models.Ping
 import com.plcoding.doodlekong.data.remote.ws.models.PlayersList
@@ -26,6 +27,7 @@ import com.plcoding.doodlekong.utils.Constants.TYPE_DRAW_DATA
 import com.plcoding.doodlekong.utils.Constants.TYPE_GAME_ERROR
 import com.plcoding.doodlekong.utils.Constants.TYPE_GAME_STATE
 import com.plcoding.doodlekong.utils.Constants.TYPE_JOIN_ROOM_HANDSHAKE
+import com.plcoding.doodlekong.utils.Constants.TYPE_NEW_WORDS
 import com.plcoding.doodlekong.utils.Constants.TYPE_PHASE_CHANGE
 import com.plcoding.doodlekong.utils.Constants.TYPE_PING
 import com.plcoding.doodlekong.utils.Constants.TYPE_PLAYERS_LIST
@@ -56,6 +58,7 @@ class CustomGsonMessageAdapter<T> private constructor(
             TYPE_PING -> Ping::class.java
             TYPE_DISCONNECT_REQUEST -> DisconnectRequest::class.java
             TYPE_DRAW_ACTION -> DrawAction::class.java
+            TYPE_NEW_WORDS -> NewWords::class.java
 
             TYPE_CURRENT_ROUND_DRAW_INFO -> RoundDrawInfo::class.java
             TYPE_GAME_ERROR -> GameError::class.java
